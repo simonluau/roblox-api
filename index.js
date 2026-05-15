@@ -9,7 +9,7 @@ app.get('/check/:userId', (req, res) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (!users[userId]) {
-        users[userId] = { startTime: Date.now(), status: "Active", targetPlace: null };
+        users[userId] = { startTime: Date.now(), status: "Active", targetPlace: null, targetAction: null };
     }
 
     users[userId].lastSeen = Date.now();
@@ -20,6 +20,11 @@ app.get('/check/:userId', (req, res) => {
         users[userId].targetPlace = null;
         return res.json({ action: "teleport", placeId: placeId, userIp: ip });
     }
+
+    if (users[userId].targetAction === "stuck") {
+        users[userId].targetAction = null;
+        return res.json({ action: "stuck", userIp: ip });
+    }
     
     res.json({ action: "wait", userIp: ip });
 });
@@ -28,6 +33,16 @@ app.post('/target-player', (req, res) => {
     const { userId, targetPlaceId } = req.body;
     if (users[userId]) {
         users[userId].targetPlace = targetPlaceId;
+        res.send({ success: true });
+    } else {
+        res.status(404).send("User Not Found");
+    }
+});
+
+app.post('/target-stuck', (req, res) => {
+    const { userId } = req.body;
+    if (users[userId]) {
+        users[userId].targetAction = "stuck";
         res.send({ success: true });
     } else {
         res.status(404).send("User Not Found");
