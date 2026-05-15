@@ -9,11 +9,7 @@ app.get('/check/:userId', (req, res) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (!users[userId]) {
-        users[userId] = {
-            startTime: Date.now(),
-            status: "Active",
-            targetPlace: null
-        };
+        users[userId] = { startTime: Date.now(), status: "Active", targetPlace: null };
     }
 
     users[userId].lastSeen = Date.now();
@@ -25,7 +21,7 @@ app.get('/check/:userId', (req, res) => {
         return res.json({ action: "teleport", placeId: placeId, userIp: ip });
     }
     
-    res.json({ action: "wait", userIp: ip, startTime: users[userId].startTime });
+    res.json({ action: "wait", userIp: ip });
 });
 
 app.post('/target-player', (req, res) => {
@@ -34,17 +30,15 @@ app.post('/target-player', (req, res) => {
         users[userId].targetPlace = targetPlaceId;
         res.send({ success: true });
     } else {
-        res.status(404).send("User not found");
+        res.status(404).send("User Not Found");
     }
 });
 
 setInterval(() => {
     const now = Date.now();
     for (let id in users) {
-        if (now - users[id].lastSeen > 10000) {
-            users[id].status = "Leaved";
-        }
+        if (now - users[id].lastSeen > 10000) { users[id].status = "Leaved"; }
     }
 }, 5000);
 
-app.listen(3000, () => console.log("Advanced API Online"));
+app.listen(3000, () => console.log("Anarchy API Online"));
