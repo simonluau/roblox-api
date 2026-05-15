@@ -1,40 +1,50 @@
 const express = require('express');
-const app = require('express')();
+const app = express();
 app.use(express.json());
 
-let teleportQueue = {};
+let users = {};
 
 app.get('/check/:userId', (req, res) => {
     const userId = req.params.userId;
-    
-    const forwarded = req.headers['x-forwarded-for'];
-    const remote = req.socket.remoteAddress;
-    
-    let displayIp = "Unknown";
-    let ipType = "Direct";
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-    if (forwarded) {
-        displayIp = forwarded.split(',')[0];
-        ipType = "Forwarded (Real)";
-    } else if (remote) {
-        displayIp = remote;
-        ipType = "Remote Socket";
+    if (!users[userId]) {
+        users[userId] = {
+            startTime: Date.now(),
+            status: "Active",
+            targetPlace: null
+        };
     }
 
-    if (teleportQueue[userId]) {
-        const targetPlace = teleportQueue[userId];
-        delete teleportQueue[userId];
-        return res.json({ action: "teleport", placeId: targetPlace, userIp: displayIp, type: ipType });
+    users[userId].lastSeen = Date.now();
+    users[userId].status = "Active";
+
+    if (users[userId].targetPlace) {
+        const placeId = users[userId].targetPlace;
+        users[userId].targetPlace = null;
+        return res.json({ action: "teleport", placeId: placeId, userIp: ip });
     }
     
-    res.json({ action: "wait", userIp: displayIp, type: ipType });
+    res.json({ action: "wait", userIp: ip, startTime: users[userId].startTime });
 });
 
 app.post('/target-player', (req, res) => {
     const { userId, targetPlaceId } = req.body;
-    if (!userId || !targetPlaceId) return res.status(400).send("Missing Data");
-    teleportQueue[userId] = targetPlaceId;
-    res.send({ success: true });
+    if (users[userId]) {
+        users[userId].targetPlace = targetPlaceId;
+        res.send({ success: true });
+    } else {
+        res.status(404).send("User not found");
+    }
 });
 
-app.listen(3000, () => console.log("API Online - English Version"));
+setInterval(() => {
+    const now = Date.now();
+    for (let id in users) {
+        if (now - users[id].lastSeen > 10000) {
+            users[id].status = "Leaved";
+        }
+    }
+}, 5000);
+
+app.listen(3000, () => console.log("Advanced API Online"));
